@@ -1,0 +1,77 @@
+
+
+# NAT 表：基于接口的 MASQUERADE
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# 从 eno4 出去的流量做 NAT（不绑定具体网段）
+-A POSTROUTING -o eno4 -j MASQUERADE
+
+COMMIT
+
+# Filter 表：UFW 框架
+*filter
+:ufw-before-input - [0:0]
+:ufw-before-output - [0:0]
+:ufw-before-forward - [0:0]
+:ufw-not-local - [0:0]
+:ufw-user-input - [0:0]
+:ufw-user-output - [0:0]
+:ufw-user-forward - [0:0]
+:ufw-after-input - [0:0]
+:ufw-after-output - [0:0]
+:ufw-after-forward - [0:0]
+:ufw-reject-input - [0:0]
+:ufw-reject-output - [0:0]
+:ufw-reject-forward - [0:0]
+:ufw-track-input - [0:0]
+:ufw-track-output - [0:0]
+:ufw-track-forward - [0:0]
+:ufw-logging-input - [0:0]
+:ufw-logging-output - [0:0]
+:ufw-logging-forward - [0:0]
+:ufw-skip-to-policy-input - [0:0]
+:ufw-skip-to-policy-output - [0:0]
+:ufw-skip-to-policy-forward - [0:0]
+
+# loopback
+-A ufw-before-input -i lo -j ACCEPT
+-A ufw-before-output -o lo -j ACCEPT
+
+# 已建立/相关连接快速通过
+-A ufw-before-input -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A ufw-before-output -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A ufw-before-forward -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# 丢弃无效连接
+-A ufw-before-input -m conntrack --ctstate INVALID -j DROP
+-A ufw-before-forward -m conntrack --ctstate INVALID -j DROP
+
+# ICMP 限制（防洪水）
+-A ufw-before-input -p icmp --icmp-type echo-request -m limit --limit 1/second -j ACCEPT
+-A ufw-before-input -p icmp --icmp-type echo-reply -m limit --limit 1/second -j ACCEPT
+-A ufw-before-input -p icmp --icmp-type destination-unreachable -j ACCEPT
+-A ufw-before-input -p icmp --icmp-type time-exceeded -j ACCEPT
+-A ufw-before-forward -p icmp --icmp-type echo-request -m limit --limit 1/second -j ACCEPT
+-A ufw-before-forward -p icmp --icmp-type echo-reply -m limit --limit 1/second -j ACCEPT
+-A ufw-before-input -p icmp -m limit --limit 3/minute -j LOG --log-prefix "[UFW ICMP BLOCK] "
+-A ufw-before-input -p icmp -j DROP
+
+# SYN 洪水防护
+-A ufw-before-input -p tcp --syn -m limit --limit 1/second -j ACCEPT
+-A ufw-before-input -p tcp --syn -j DROP
+
+# 端口扫描防护
+-A ufw-before-input -p tcp --tcp-flags ALL NONE -m limit --limit 1/minute -j LOG --log-prefix "[UFW SCAN] "
+-A ufw-before-input -p tcp --tcp-flags ALL NONE -j DROP
+-A ufw-before-input -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+-A ufw-before-input -p tcp --tcp-flags SYN,RST SYN,RST -j DROP
+
+# 默认策略
+-A ufw-before-input -j DROP
+-A ufw-before-forward -j DROP
+-A ufw-before-output -j ACCEPT
+
+COMMIT

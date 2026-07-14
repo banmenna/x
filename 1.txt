@@ -1,0 +1,14 @@
+# 停止并禁用 iptables-persistent（如果安装了）
+sudo systemctl disable netfilter-persistent 2>/dev/null
+sudo apt remove iptables-persistent -y 2>/dev/null
+
+# 清空所有 iptables 规则（UFW 会重新生成）
+sudo iptables -F
+sudo iptables -t nat -F
+sudo iptables -t mangle -F
+sudo iptables -X
+sudo iptables -t nat -X
+sudo iptables -t mangle -X
+
+# 重置 UFW（删除所有自定义规则）
+sudo ufw reset

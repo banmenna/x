@@ -12,3 +12,9 @@ sudo iptables -t mangle -X
 
 # 重置 UFW（删除所有自定义规则）
 sudo ufw reset
+
+echo "net/ipv4/ip_forward=1" | sudo tee /etc/ufw/sysctl.conf
+sudo sysctl -p /etc/ufw/sysctl.conf
+
+
+
